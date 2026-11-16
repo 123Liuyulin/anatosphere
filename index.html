@@ -298,7 +298,7 @@ body.light #ctl .vrow .vb{background:rgba(20,60,110,.07);color:#27405a;border-co
 </style></head><body>
 <button id="lcolBtn" title="收起/展开左栏">‹</button>
 <button id="rcolBtn" title="收起/展开右侧数据面板">›</button>
-<div id="hud"><h1>解剖星穹</h1><p class="sub">AnatoSphere<span class="dot">·</span>人体结构三维知识图谱<span class="dot">·</span><span style="letter-spacing:.06em">v2.70.0</span></p><p id="stat">加载中…</p></div>
+<div id="hud"><h1>解剖星穹</h1><p class="sub">AnatoSphere<span class="dot">·</span>人体结构三维知识图谱<span class="dot">·</span><span style="letter-spacing:.06em">v2.71.0</span></p><p id="stat">加载中…</p></div>
 <div id="tip">拖拽旋转 · 按住选中节点连带邻居拖动（松手归位） · 滚轮缩放 · 点节点展开关联</div>
 <div id="bc"></div>
 <div id="rv"><div class="rvh"><span>间隔复习 · 到期清单</span><span id="rvClose">关闭 ×</span></div><div id="rvList"></div>
@@ -384,7 +384,7 @@ body.light #ctl .vrow .vb{background:rgba(20,60,110,.07);color:#27405a;border-co
 <div id="ex634"><div class="eh"><b>634 医学技术综合 · 解剖考点对照</b><span id="exStat">点划线处节点名可直达球体　</span><span><button id="exX" style="background:none;border:none;color:#879bb5;font-size:15px;cursor:pointer;font-family:inherit">×</button></span></div><div id="exBody"></div></div>
 <div id="quiz"><div class="qh"><span id="qzh">自测</span><button id="qzx" title="退出自测">×</button></div>
 <div id="qzlay"></div><div class="qq" id="qzq"></div><div id="qzo"></div><div id="qzfb"></div></div>
-<script>window.__VER="v2.70.0";</script>
+<script>window.__VER="v2.71.0";</script>
 <script>console.warn('Scripts "build/three.js" and "build/three.min.js" are deprecated with r150+, and will be removed with r160. Please use ES Modules or alternatives: https://threejs.org/docs/index.html#manual/en/introduction/Installation'),
 /**
  * @license
@@ -584,6 +584,7 @@ const GALMETA={
   'gal:source':{name:'溯源星系',col:0xb06cf0,types:['source']}
 };
 const GALORDER=Object.keys(GALMETA);
+const NODEBYID={};DATA.nodes.forEach(n=>{NODEBYID[n.id]=n;});
 const GST={};
 DATA.nodes.forEach(n=>{if(!n.gal)return;const s=GST[n.gal]=GST[n.gal]||{n:0,star:0,pl:0,sa:0};s.n++;
   if(n.tier==='star')s.star++;else if(n.tier==='planet')s.pl++;else s.sa++;});
@@ -706,7 +707,59 @@ function gsClear(){
   }
   GSPICK.length=0;
 }
-function exitSys(){SYSMODE=false;SYSGAL=null;GSYS.visible=false;gsClear();setMode(true);}
+const galTip=(()=>{const d=document.createElement('div');d.id='galTip';
+  d.style.cssText='position:fixed;pointer-events:none;padding:3px 9px;border-radius:6px;background:rgba(8,14,26,.88);border:1px solid rgba(120,170,230,.36);color:#dbe9ff;font:12px/1.45 "Noto Sans SC",system-ui,sans-serif;z-index:60;display:none;white-space:nowrap;box-shadow:0 2px 10px rgba(0,0,0,.45)';
+  document.body.appendChild(d);return d;})();
+let _HVOBJ=null;
+function _hvOff(){
+  if(_HVOBJ){const t=_HVOBJ.userData._vis||_HVOBJ;
+    if(t.userData._c0)t.material.color.copy(t.userData._c0);
+    if(t.userData._s0)t.scale.copy(t.userData._s0);
+    _HVOBJ=null;}
+  galTip.style.display='none';
+}
+function hoverGal(e){
+  const m=new THREE.Vector2((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1);
+  RDG.setFromCamera(m,cam);
+  const hs=RDG.intersectObjects(GALPICK,false);
+  if(!hs.length){galTip.style.display='none';return;}
+  const g=hs[0].object.userData&&hs[0].object.userData.gal;
+  if(!g){galTip.style.display='none';return;}
+  const st=GST[g]||{},mt=GALMETA[g]||{};
+  galTip.textContent=(mt.name||g)+'  ·  '+(st.n||0)+' 节点（'+(st.star||0)+' 恒星 / '+(st.pl||0)+' 行星 / '+(st.sa||0)+' 卫星）点击进入';
+  galTip.style.display='block';
+  galTip.style.left=(e.clientX+15)+'px';
+  galTip.style.top=(e.clientY+12)+'px';
+}
+function hoverSys(e){
+  const m=new THREE.Vector2((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1);
+  RDG.setFromCamera(m,cam);
+  const hs=RDG.intersectObjects(GSPICK,false);
+  if(!hs.length){_hvOff();return;}
+  const o=hs[0].object,u=o.userData;
+  if(!u||!u.node){_hvOff();return;}
+  if(_HVOBJ!==o){
+    _hvOff();
+    const t=u.vis||o;
+    if(!t.userData._c0)t.userData._c0=t.material.color.clone();
+    if(!t.userData._s0)t.userData._s0=t.scale.clone();
+    t.material.color.copy(t.userData._c0).lerp(new THREE.Color(0xffffff),0.42);
+    const f=u.kind==='satellite'?1.7:1.16; t.scale.copy(t.userData._s0).multiplyScalar(f);
+    _HVOBJ=o; o.userData._vis=t;
+  }
+  const n=u.node;
+  let _txt=n.name+'  ·  '+(u.kind==='star'?'恒星':(u.kind==='planet'?'行星':'卫星'))+'  ·  '+(n.deg||0)+' 条边';
+  if(n.host_cross){
+    const _cn=NODEBYID[n.host_cross];
+    const _gn=_cn?((GALMETA[_cn.gal]||{}).name||''):'';
+    if(_gn)_txt+='  ·  跨星系主连接：'+_cn.name+'（'+_gn+'）';
+  }
+  galTip.textContent=_txt;
+  galTip.style.display='block';
+  galTip.style.left=(e.clientX+15)+'px';
+  galTip.style.top=(e.clientY+12)+'px';
+}
+function exitSys(){SYSMODE=false;SYSGAL=null;GSYS.visible=false;gsClear();_hvOff();setMode(true);}
 function galStat(){
   const tot=['n','star','pl','sa'];
   const sum={};tot.forEach(k=>{sum[k]=0;Object.keys(GST).forEach(g=>sum[k]+=(GST[g][k]||0));});
@@ -826,7 +879,7 @@ function enterGalaxy(gid){
         sm.position.copy(q);GSYS.add(sm);
         const hb=new THREE.Mesh(new THREE.SphereGeometry(9,8,6),
           new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false}));
-        hb.position.copy(q);hb.userData={node:sn,kind:'satellite'};GSYS.add(hb);GSPICK.push(hb);
+        hb.position.copy(q);hb.userData={node:sn,kind:'satellite',vis:sm};GSYS.add(hb);GSPICK.push(hb);
         if(si===0){
           const rq=[],sg2=24;
           for(let j=0;j<=sg2;j++){const a=j*Math.PI*2/sg2;
@@ -1016,6 +1069,7 @@ function dnEnd(){
 rnd.domElement.addEventListener('pointerdown',e=>{
   if(e.button===2)return;
   if(SYSMODE){
+    _hvOff();
     const m3=new THREE.Vector2((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1);
     RDG.setFromCamera(m3,cam);
     const hs=RDG.intersectObjects(GSPICK,false);
@@ -1046,6 +1100,9 @@ rnd.domElement.addEventListener('pointerdown',e=>{
 addEventListener('pointerup',()=>{dragging=false;if(DN)dnEnd();});
 addEventListener('pointermove',e=>{
   if(DN){dnMove(e);return;}
+  if(SYSMODE&&!dragging){hoverSys(e);}
+  else if(GMODE&&!dragging){hoverGal(e);}
+  else if(!SYSMODE&&!GMODE){_hvOff();}
   if(!dragging)return;
   const dx=e.clientX-px, dy=e.clientY-py; px=e.clientX;py=e.clientY;
   moved+=Math.abs(dx)+Math.abs(dy);
