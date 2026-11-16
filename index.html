@@ -298,7 +298,7 @@ body.light #ctl .vrow .vb{background:rgba(20,60,110,.07);color:#27405a;border-co
 </style></head><body>
 <button id="lcolBtn" title="收起/展开左栏">‹</button>
 <button id="rcolBtn" title="收起/展开右侧数据面板">›</button>
-<div id="hud"><h1>解剖星穹</h1><p class="sub">AnatoSphere<span class="dot">·</span>人体结构三维知识图谱<span class="dot">·</span><span style="letter-spacing:.06em">v2.73.0</span></p><p id="stat">加载中…</p></div>
+<div id="hud"><h1>解剖星穹</h1><p class="sub">AnatoSphere<span class="dot">·</span>人体结构三维知识图谱<span class="dot">·</span><span style="letter-spacing:.06em">v2.74.0</span></p><p id="stat">加载中…</p></div>
 <div id="tip">拖拽旋转 · 按住选中节点连带邻居拖动（松手归位） · 滚轮缩放 · 点节点展开关联</div>
 <div id="bc"></div>
 <div id="rv"><div class="rvh"><span>间隔复习 · 到期清单</span><span id="rvClose">关闭 ×</span></div><div id="rvList"></div>
@@ -384,7 +384,7 @@ body.light #ctl .vrow .vb{background:rgba(20,60,110,.07);color:#27405a;border-co
 <div id="ex634"><div class="eh"><b>634 医学技术综合 · 解剖考点对照</b><span id="exStat">点划线处节点名可直达球体　</span><span><button id="exX" style="background:none;border:none;color:#879bb5;font-size:15px;cursor:pointer;font-family:inherit">×</button></span></div><div id="exBody"></div></div>
 <div id="quiz"><div class="qh"><span id="qzh">自测</span><button id="qzx" title="退出自测">×</button></div>
 <div id="qzlay"></div><div class="qq" id="qzq"></div><div id="qzo"></div><div id="qzfb"></div></div>
-<script>window.__VER="v2.73.0";</script>
+<script>window.__VER="v2.74.0";</script>
 <script>console.warn('Scripts "build/three.js" and "build/three.min.js" are deprecated with r150+, and will be removed with r160. Please use ES Modules or alternatives: https://threejs.org/docs/index.html#manual/en/introduction/Installation'),
 /**
  * @license
@@ -696,7 +696,7 @@ const GALFLOW=[];
 let GMODE=false;
 const GSYS=new THREE.Group();GSYS.visible=false;scene.add(GSYS);
 const SYSBELS=[];const SYSMARK=[];
-const GSPICK=[];let SYSMODE=false,SYSGAL=null;
+const GSPICK=[];let SYSMODE=false,SYSGAL=null,FOCUSSTAR=null,SYSPOS=null,CAMTW=null,STARGLOW=[];
 function gsClear(){
   while(GSYS.children.length){
     const o=GSYS.children.pop();
@@ -772,9 +772,30 @@ function relabel(){
     while(step<4&&placed.some(q=>Math.abs(q.x-sx)<92&&Math.abs(q.y-sy)<28)){sy+=29;step++;}
     placed.push({x:sx,y:sy});
     o.sp.position.set(o.base.x,o.base.y-step*52,o.base.z);
+    const m0=o.sp.material;if(m0){if(m0._o0==null)m0._o0=m0.opacity;
+      m0.opacity=(FOCUSSTAR&&o.sid!==FOCUSSTAR)?m0._o0*0.30:m0._o0;}
   });
 }
-function exitSys(){SYSMODE=false;SYSGAL=null;GSYS.visible=false;gsClear();_hvOff();
+function _dimStars(id){
+  GSPICK.forEach(m=>{const u=m.userData;if(!u||u.kind!=='star'||!u.node)return;
+    if(m.userData._o0==null)m.userData._o0=m.material.opacity;
+    m.material.opacity=(u.node.id===id)?m.userData._o0:Math.min(m.userData._o0,0.40);});
+  STARGLOW.forEach(g=>{const u=g.userData;if(!u||!u.node)return;
+    if(g.userData._o0==null)g.userData._o0=g.material.opacity;
+    g.material.opacity=(u.node.id===id)?g.userData._o0:Math.min(g.userData._o0,0.07);});
+}
+function _restoreStarOp(){
+  GSPICK.forEach(m=>{if(m.userData&&m.userData._o0!=null)m.material.opacity=m.userData._o0;});
+  STARGLOW.forEach(g=>{if(g.userData&&g.userData._o0!=null)g.material.opacity=g.userData._o0;});}
+function setFocus(id){
+  if(!id||!SYSPOS||!SYSPOS[id]){FOCUSSTAR=null;_restoreStarOp();
+    CAMTW={t:0,la0:(lookingAt||new THREE.Vector3(0,0,0)).clone(),la1:new THREE.Vector3(0,0,0),d0:dist,d1:1800};
+    return;}
+  FOCUSSTAR=id;const p=SYSPOS[id];
+  _dimStars(id);
+  CAMTW={t:0,la0:(lookingAt||new THREE.Vector3(0,0,0)).clone(),la1:p.clone(),d0:dist,d1:780};
+}
+function exitSys(){SYSMODE=false;FOCUSSTAR=null;CAMTW=null;_restoreStarOp();SYSGAL=null;GSYS.visible=false;gsClear();_hvOff();
   SYSBELS.length=0;SYSMARK.length=0;setMode(true);}
 function galStat(){
   const tot=['n','star','pl','sa'];
@@ -803,26 +824,28 @@ function enterGalaxy(gid){
   groups.forEach(p=>p.visible=false);
   shells.forEach(s=>s.visible=false);
   Object.keys(edgeObjs).forEach(k=>{if(edgeObjs[k])edgeObjs[k].visible=false;});
-  gsClear();
+  gsClear();STARGLOW.length=0;
   SYSMODE=true;SYSGAL=gid;
   const m=GALMETA[gid]||{name:gid,col:0xffffff};
   const col=0xffffff,lst=DATA.nodes.filter(n=>n.gal===gid);
   const stars=lst.filter(n=>n.tier==='star').sort((a,b)=>(b.deg||0)-(a.deg||0));
   const maxDeg=Math.max(30,stars.length?stars[0].deg:30);
-  const SP={},R0=16;
+  const SP={},R0=16;SYSPOS=SP;
   const addStar=(node,p,R,isCore,showLb)=>{
     const mesh=new THREE.Mesh(new THREE.SphereGeometry(R,20,14),
       new THREE.MeshBasicMaterial({color:(GALMETA[gid]||{}).col||0xffffff,transparent:true,opacity:0.94}));
     mesh.position.copy(p);mesh.userData={node:node,kind:'star'};GSYS.add(mesh);GSPICK.push(mesh);
     const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:BLOB,color:(GALMETA[gid]||{}).col||0xffffff,
       transparent:true,opacity:0.50,depthWrite:false,blending:THREE.AdditiveBlending}));
-    glow.position.copy(p);glow.scale.set(R*5.4,R*5.4,1);GSYS.add(glow);
+    glow.position.copy(p);glow.scale.set(R*5.4,R*5.4,1);
+    glow.userData={node:node,kind:'starGlow'};GSYS.add(glow);STARGLOW.push(glow);
     if(showLb){
       const lb=labelSprite(node.name,new THREE.Color((GALMETA[gid]||{}).col||0xffffff).lerp(new THREE.Color(0xffffff),0.74),0.94);
       const dd=Math.max(1,Math.hypot(p.x,p.z));
       const off=(R*2.2+62)*(isCore?1.5:1);
       lb.position.set(p.x+p.x/dd*off,p.y+off*0.52,p.z+p.z/dd*off);
-      GSYS.add(lb);SYSBELS.push({sp:lb,base:lb.position.clone()});
+      GSYS.add(lb);if(lb.material&&lb.material._o0==null)lb.material._o0=lb.material.opacity;
+      SYSBELS.push({sp:lb,base:lb.position.clone(),sid:node.id});
     }
   };
   if(stars.length){
@@ -1120,7 +1143,10 @@ rnd.domElement.addEventListener('pointerdown',e=>{
     RDG.setFromCamera(m3,cam);
     const hs=RDG.intersectObjects(GSPICK,false);
     if(hs.length){const u3=hs[0].object.userData;
-      if(u3&&u3.node){cur=u3.node;showPanel(u3.node);return;}}
+      if(u3&&u3.node){
+        if(u3.kind==='star'){setFocus(u3.node.id===FOCUSSTAR?null:u3.node.id);}
+        cur=u3.node;showPanel(u3.node);return;}}
+    if(FOCUSSTAR){setFocus(null);return;}
     dragging=true;px=e.clientX;py=e.clientY;moved=0;return;
   }
   if(GMODE){
@@ -2087,6 +2113,11 @@ let _last=performance.now();
   }
   if(GMODE&&GALFLOW.length){for(let i=0;i<GALFLOW.length;i++){const f=GALFLOW[i];
     f.t+=f.v*_f;if(f.t>1)f.t-=1;f.sp.position.lerpVectors(f.a,f.b,f.t);}}
+  if(CAMTW){CAMTW.t=Math.min(1,CAMTW.t+0.055);
+    const _k=CAMTW.t<0.5?2*CAMTW.t*CAMTW.t:1-Math.pow(-2*CAMTW.t+2,2)/2;
+    dist=CAMTW.d0+(CAMTW.d1-CAMTW.d0)*_k;
+    lookingAt=CAMTW.la0.clone().lerp(CAMTW.la1,_k);
+    if(CAMTW.t>=1)CAMTW=null;}
   if(SYSMODE)relabel();
   applyCam();rnd.render(scene,cam);
 })();
