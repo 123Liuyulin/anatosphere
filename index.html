@@ -298,7 +298,7 @@ body.light #ctl .vrow .vb{background:rgba(20,60,110,.07);color:#27405a;border-co
 </style></head><body>
 <button id="lcolBtn" title="收起/展开左栏">‹</button>
 <button id="rcolBtn" title="收起/展开右侧数据面板">›</button>
-<div id="hud"><h1>解剖星穹</h1><p class="sub">AnatoSphere<span class="dot">·</span>人体结构三维知识图谱<span class="dot">·</span><span style="letter-spacing:.06em">v2.77.0</span></p><p id="stat">加载中…</p></div>
+<div id="hud"><h1>解剖星穹</h1><p class="sub">AnatoSphere<span class="dot">·</span>人体结构三维知识图谱<span class="dot">·</span><span style="letter-spacing:.06em">v2.78.0</span></p><p id="stat">加载中…</p></div>
 <div id="tip">拖拽旋转 · 按住选中节点连带邻居拖动（松手归位） · 滚轮缩放 · 点节点展开关联</div>
 <div id="bc"></div>
 <div id="rv"><div class="rvh"><span>间隔复习 · 到期清单</span><span id="rvClose">关闭 ×</span></div><div id="rvList"></div>
@@ -384,7 +384,7 @@ body.light #ctl .vrow .vb{background:rgba(20,60,110,.07);color:#27405a;border-co
 <div id="ex634"><div class="eh"><b>634 医学技术综合 · 解剖考点对照</b><span id="exStat">点划线处节点名可直达球体　</span><span><button id="exX" style="background:none;border:none;color:#879bb5;font-size:15px;cursor:pointer;font-family:inherit">×</button></span></div><div id="exBody"></div></div>
 <div id="quiz"><div class="qh"><span id="qzh">自测</span><button id="qzx" title="退出自测">×</button></div>
 <div id="qzlay"></div><div class="qq" id="qzq"></div><div id="qzo"></div><div id="qzfb"></div></div>
-<script>window.__VER="v2.77.0";</script>
+<script>window.__VER="v2.78.0";</script>
 <script>console.warn('Scripts "build/three.js" and "build/three.min.js" are deprecated with r150+, and will be removed with r160. Please use ES Modules or alternatives: https://threejs.org/docs/index.html#manual/en/introduction/Installation'),
 /**
  * @license
@@ -831,7 +831,7 @@ function enterGalaxy(gid){
   const stars=lst.filter(n=>n.tier==='star').sort((a,b)=>(b.deg||0)-(a.deg||0));
   const maxDeg=Math.max(30,stars.length?stars[0].deg:30);
   const SP={},R0=16;SYSPOS=SP;
-  const addStar=(node,p,R,isCore,showLb)=>{
+  const addStar=(node,p,R,isCore,showLb,ls)=>{
     const mesh=new THREE.Mesh(new THREE.SphereGeometry(R,20,14),
       new THREE.MeshBasicMaterial({color:(GALMETA[gid]||{}).col||0xffffff,transparent:true,opacity:0.94}));
     mesh.position.copy(p);mesh.userData={node:node,kind:'star'};GSYS.add(mesh);GSPICK.push(mesh);
@@ -844,6 +844,7 @@ function enterGalaxy(gid){
       const dd=Math.max(1,Math.hypot(p.x,p.z));
       const off=(R*2.2+62)*(isCore?1.5:1);
       lb.position.set(p.x+p.x/dd*off,p.y+off*0.52,p.z+p.z/dd*off);
+      if(ls&&ls!==1)lb.scale.multiplyScalar(ls);
       GSYS.add(lb);if(lb.material&&lb.material._o0==null)lb.material._o0=lb.material.opacity;
       SYSBELS.push({sp:lb,base:lb.position.clone(),sid:node.id});
     }
@@ -858,6 +859,7 @@ function enterGalaxy(gid){
             ang=arm*Math.PI*2/ARMS+2.95*t+0.55+(k%2?0.10:-0.06);
       return {rr:rr,ang:ang};};
     const SCS=stars.length<=12?1:(stars.length<=30?0.82:0.64);
+    const LIM=stars.length<=14?stars.length:(stars.length<=30?22:26),LSC=stars.length<=14?1:(stars.length<=30?0.86:0.74);
     stars.forEach((s,k)=>{
       let p;
       if(k===0)p=new THREE.Vector3(0,0,0);
@@ -866,7 +868,7 @@ function enterGalaxy(gid){
         p=new THREE.Vector3(Math.cos(a.ang)*a.rr,(k<NB?(k-2)*96:Math.sin(k*1.9)*72),Math.sin(a.ang)*a.rr);
       }
       SP[s.id]=p;
-      addStar(s,p,(R0+22*(s.deg||30)/maxDeg)*SCS,false,true);
+      addStar(s,p,(R0+22*(s.deg||30)/maxDeg)*SCS,false,k<LIM,LSC);
     });
     const dp=[],dc=[],cnt=Math.min(760,120+stars.length*52);
     for(let i=0;i<cnt;i++){
