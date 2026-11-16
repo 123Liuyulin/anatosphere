@@ -298,7 +298,7 @@ body.light #ctl .vrow .vb{background:rgba(20,60,110,.07);color:#27405a;border-co
 </style></head><body>
 <button id="lcolBtn" title="收起/展开左栏">‹</button>
 <button id="rcolBtn" title="收起/展开右侧数据面板">›</button>
-<div id="hud"><h1>解剖星穹</h1><p class="sub">AnatoSphere<span class="dot">·</span>人体结构三维知识图谱<span class="dot">·</span><span style="letter-spacing:.06em">v2.68.0</span></p><p id="stat">加载中…</p></div>
+<div id="hud"><h1>解剖星穹</h1><p class="sub">AnatoSphere<span class="dot">·</span>人体结构三维知识图谱<span class="dot">·</span><span style="letter-spacing:.06em">v2.68.1</span></p><p id="stat">加载中…</p></div>
 <div id="tip">拖拽旋转 · 按住选中节点连带邻居拖动（松手归位） · 滚轮缩放 · 点节点展开关联</div>
 <div id="bc"></div>
 <div id="rv"><div class="rvh"><span>间隔复习 · 到期清单</span><span id="rvClose">关闭 ×</span></div><div id="rvList"></div>
@@ -384,7 +384,7 @@ body.light #ctl .vrow .vb{background:rgba(20,60,110,.07);color:#27405a;border-co
 <div id="ex634"><div class="eh"><b>634 医学技术综合 · 解剖考点对照</b><span id="exStat">点划线处节点名可直达球体　</span><span><button id="exX" style="background:none;border:none;color:#879bb5;font-size:15px;cursor:pointer;font-family:inherit">×</button></span></div><div id="exBody"></div></div>
 <div id="quiz"><div class="qh"><span id="qzh">自测</span><button id="qzx" title="退出自测">×</button></div>
 <div id="qzlay"></div><div class="qq" id="qzq"></div><div id="qzo"></div><div id="qzfb"></div></div>
-<script>window.__VER="v2.68.0";</script>
+<script>window.__VER="v2.68.1";</script>
 <script>console.warn('Scripts "build/three.js" and "build/three.min.js" are deprecated with r150+, and will be removed with r160. Please use ES Modules or alternatives: https://threejs.org/docs/index.html#manual/en/introduction/Installation'),
 /**
  * @license
@@ -647,18 +647,66 @@ GALORDER.forEach((gid,i)=>{
   const sb=labelSprite('恒星 '+s.star+' · 行星 '+((GST[gid]||{}).pl||0),0xb2cbe4,r>85?0.74:0.92);
   sb.position.set(p.x,p.y-r*0.42-110,p.z);GALX.add(sb);
 });
-// 航道线：按跨星系边数，越多越亮
+// 航道：粒子丝带（沿两星系之间撒点，中段鼓、两端细，不做整条直线）
+const GALFLOW=[];
 (()=>{
   let mx=1;Object.keys(GPAIR).forEach(k=>{if(GPAIR[k]>mx)mx=GPAIR[k];});
+  const up=new THREE.Vector3(0,1,0);
   Object.keys(GPAIR).forEach(k=>{
-    const [a,b]=k.split('|'),pa=GALPOS[a],pb=GALPOS[b];
+    const ab=k.split('|'),a=ab[0],b=ab[1],pa=GALPOS[a],pb=GALPOS[b];
     if(!pa||!pb)return;
-    const cnt=GPAIR[k],op=0.10+0.42*(cnt/mx);
-    const g=new THREE.BufferGeometry().setFromPoints([pa,pb]);
-    GALX.add(new THREE.Line(g,new THREE.LineBasicMaterial({color:0x5d8fc4,transparent:true,opacity:op})));
+    const cnt=GPAIR[k],w=Math.min(1,cnt/mx);
+    const dir=new THREE.Vector3().subVectors(pb,pa);
+    const len=dir.length();dir.normalize();
+    const per=new THREE.Vector3().crossVectors(dir,up).normalize();
+    const per2=new THREE.Vector3().crossVectors(dir,per).normalize();
+    const ca=new THREE.Color((GALMETA[a]||{}).col||0x88aacc),cb=new THREE.Color((GALMETA[b]||{}).col||0x88aacc);
+    const mix=ca.clone().lerp(cb,0.55);
+    const N=Math.round(96+84*w),pp=[],cc=[];
+    for(let i=0;i<N;i++){
+      const t=i/(N-1),bell=Math.sin(Math.PI*t);
+      const spread=(6+16*w)*bell*0.5;
+      const q1=Math.sin(t*Math.PI*5.0)*spread,q2=Math.cos(t*Math.PI*3.4)*spread*0.6;
+      const q0=1-t;
+      pp.push(pa.x*q0+pb.x*t+per.x*q1+per2.x*q2,
+              pa.y*q0+pb.y*t+per.y*q1+per2.y*q2,
+              pa.z*q0+pb.z*t+per.z*q1+per2.z*q2);
+      const c=mix.clone().lerp(new THREE.Color(0xffffff),0.34+0.48*bell);
+      cc.push(c.r,c.g,c.b);
+    }
+    GALX.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([pa,pb]),
+      new THREE.LineBasicMaterial({color:mix.clone().lerp(new THREE.Color(0xffffff),0.42),
+        transparent:true,opacity:0.18+0.26*w,blending:THREE.AdditiveBlending,depthWrite:false})));
+    const g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.Float32BufferAttribute(pp,3));
+    g.setAttribute('color',new THREE.Float32BufferAttribute(cc,3));
+    GALX.add(new THREE.Points(g,new THREE.PointsMaterial({size:5.4+2.8*w,vertexColors:true,
+      transparent:true,opacity:0.48+0.30*w,sizeAttenuation:true,map:TEX,depthWrite:false,
+      alphaTest:0.03,blending:THREE.AdditiveBlending})));
+    const nb=2+Math.round(2*w);
+    for(let i=0;i<nb;i++){
+      const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:BLOB,color:0xffffff,transparent:true,
+        opacity:0.30+0.28*w,depthWrite:false,blending:THREE.AdditiveBlending}));
+      const sz=11+11*w;sp.scale.set(sz,sz,1);GALX.add(sp);
+      GALFLOW.push({sp:sp,a:pa.clone(),b:pb.clone(),t:i/nb,v:0.0032+0.0060*w});
+    }
   });
 })();
 let GMODE=false;
+const GSYS=new THREE.Group();GSYS.visible=false;scene.add(GSYS);
+const GSPICK=[];let SYSMODE=false,SYSGAL=null;
+function gsClear(){
+  while(GSYS.children.length){
+    const o=GSYS.children.pop();
+    if(o.geometry&&o.geometry.dispose)o.geometry.dispose();
+    if(o.material){
+      if(o.material.map&&o.material.map!==TEX&&o.material.map!==BLOB&&o.material.map!==TEX2)o.material.map.dispose();
+      o.material.dispose();
+    }
+  }
+  GSPICK.length=0;
+}
+function exitSys(){SYSMODE=false;SYSGAL=null;GSYS.visible=false;gsClear();setMode(true);}
 function galStat(){
   const tot=['n','star','pl','sa'];
   const sum={};tot.forEach(k=>{sum[k]=0;Object.keys(GST).forEach(g=>sum[k]+=(GST[g][k]||0));});
@@ -666,6 +714,7 @@ function galStat(){
 }
 function setMode(g){
   GMODE=g;
+  SYSMODE=false;SYSGAL=null;if(GSYS)GSYS.visible=false;
   const btn=document.getElementById('galBtn');
   if(btn)btn.textContent=g?'返回球体':'银河态';
   GALX.visible=g;
@@ -679,17 +728,141 @@ function setMode(g){
     gs.textContent='银河系 · '+t.gal+' 个星系 · '+t.star+' 恒星 · '+t.pl+' 行星 · '+t.sa+' 卫星（点星系进入）';}
   else if(gs&&!g){gs.textContent='';}
 }
+const SYSR=620;
 function enterGalaxy(gid){
   setMode(false);
-  const types=(GALMETA[gid]||{}).types||[];
-  groups.forEach(p=>p.visible=types.indexOf(p.userData.type)>=0);
-  const s=GST[gid]||{n:0,star:0};
+  groups.forEach(p=>p.visible=false);
+  shells.forEach(s=>s.visible=false);
+  Object.keys(edgeObjs).forEach(k=>{if(edgeObjs[k])edgeObjs[k].visible=false;});
+  gsClear();
+  SYSMODE=true;SYSGAL=gid;
+  const m=GALMETA[gid]||{name:gid,col:0xffffff};
+  const col=0xffffff,lst=DATA.nodes.filter(n=>n.gal===gid);
+  const stars=lst.filter(n=>n.tier==='star').sort((a,b)=>(b.deg||0)-(a.deg||0));
+  const maxDeg=Math.max(30,stars.length?stars[0].deg:30);
+  const SP={},R0=16;
+  const addStar=(node,p,R,isCore,showLb)=>{
+    const mesh=new THREE.Mesh(new THREE.SphereGeometry(R,20,14),
+      new THREE.MeshBasicMaterial({color:(GALMETA[gid]||{}).col||0xffffff,transparent:true,opacity:0.94}));
+    mesh.position.copy(p);mesh.userData={node:node,kind:'star'};GSYS.add(mesh);GSPICK.push(mesh);
+    const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:BLOB,color:(GALMETA[gid]||{}).col||0xffffff,
+      transparent:true,opacity:0.50,depthWrite:false,blending:THREE.AdditiveBlending}));
+    glow.position.copy(p);glow.scale.set(R*5.4,R*5.4,1);GSYS.add(glow);
+    if(showLb){
+      const lb=labelSprite(node.name,new THREE.Color((GALMETA[gid]||{}).col||0xffffff).lerp(new THREE.Color(0xffffff),0.66),0.82);
+      const lift=R*2.1+(isCore?0:26);
+      lb.position.set(p.x,p.y+lift,p.z);GSYS.add(lb);
+    }
+  };
+  if(stars.length){
+    stars.forEach((s,k)=>{
+      let p;
+      if(k===0)p=new THREE.Vector3(0,0,0);
+      else{
+        const c2=Math.max(1,stars.length-1),ang=(k-1)*Math.PI*2/c2;
+        const rr=SYSR*(0.58+0.42*((k%2)?1:0.70));
+        p=new THREE.Vector3(Math.cos(ang)*rr,Math.sin(k*2.1)*120,Math.sin(ang)*rr);
+      }
+      SP[s.id]=p;
+      addStar(s,p,R0+22*(s.deg||30)/maxDeg,false,k<6);
+    });
+  }else{
+    const top=lst.slice().sort((a,b)=>(b.deg||0)-(a.deg||0)).slice(0,3);
+    const pp=[[0,0,0],[SYSR*0.72,0,0],[0,0,-SYSR*0.72]];
+    top.forEach((s,k)=>{
+      const p=new THREE.Vector3(pp[k][0],pp[k][1],pp[k][2]);SP[s.id]=p;
+      addStar(s,p,R0+12,true,true);
+    });
+    lst.forEach(n=>{if(SP[n.id])return;const v=fib(lst.indexOf(n),lst.length,SYSR*1.05);
+      SP[n.id]=new THREE.Vector3(v.x,v.y*0.6,v.z);});
+    const pp2=[],cc2=[];
+    lst.forEach(n=>{if(n===top[0]||n===top[1]||n===top[2])return;const p=SP[n.id];
+      const c=new THREE.Color(COL[n.type]||0x9fb6cf);pp2.push(p.x,p.y,p.z);cc2.push(c.r,c.g,c.b);});
+    const g2=new THREE.BufferGeometry();
+    g2.setAttribute('position',new THREE.Float32BufferAttribute(pp2,3));
+    g2.setAttribute('color',new THREE.Float32BufferAttribute(cc2,3));
+    GSYS.add(new THREE.Points(g2,new THREE.PointsMaterial({size:9,vertexColors:true,transparent:true,
+      opacity:0.92,sizeAttenuation:true,map:TEX,depthWrite:false,alphaTest:0.05})));
+  }
+  const gcol=(GALMETA[gid]||{}).col||0xffffff;
+  stars.forEach(s=>{
+    const c0=SP[s.id],R=R0+22*(s.deg||30)/maxDeg;
+    const pls=lst.filter(n=>n.tier==='planet'&&n.host===s.id).sort((a,b)=>(b.deg||0)-(a.deg||0));
+    const sats=lst.filter(n=>n.tier==='satellite'&&n.host===s.id);
+    const np=Math.max(1,pls.length);
+    pls.forEach((n,k)=>{
+      const t=np===1?0.35:Math.pow(k/(np-1),0.66);
+      const orb=R+64+330*t,ang=k*2.399963;
+      const p=new THREE.Vector3(c0.x+Math.cos(ang)*orb,c0.y+Math.sin(ang*1.7)*26,c0.z+Math.sin(ang)*orb);
+      SP[n.id]=p;
+      const rp=5.4+6.0*(n.deg||5)/maxDeg;
+      const mesh=new THREE.Mesh(new THREE.SphereGeometry(rp,14,10),
+        new THREE.MeshBasicMaterial({color:COL[n.type]||col,transparent:true,opacity:0.97}));
+      mesh.position.copy(p);mesh.userData={node:n,kind:'planet'};GSYS.add(mesh);GSPICK.push(mesh);
+      const pl=new THREE.Sprite(new THREE.SpriteMaterial({map:BLOB,color:COL[n.type]||col,
+        transparent:true,opacity:0.34,depthWrite:false,blending:THREE.AdditiveBlending}));
+      pl.position.copy(p);pl.scale.set(rp*4.2,rp*4.2,1);GSYS.add(pl);
+      if(k===0||k===pls.length-1){
+        const rp2=[],segs=48;
+        for(let j=0;j<=segs;j++){const a=j*Math.PI*2/segs;
+          rp2.push(new THREE.Vector3(c0.x+Math.cos(a)*orb,c0.y,c0.z+Math.sin(a)*orb));}
+        GSYS.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(rp2),
+          new THREE.LineBasicMaterial({color:gcol,transparent:true,opacity:0.13})));
+      }
+    });
+    if(sats.length){
+      const base=R+64+330+38,pps=[],ccs=[];
+      sats.forEach((n,k)=>{
+        const a=k*2.399963+0.5,orb=base+((k%4)*14);
+        const p=new THREE.Vector3(c0.x+Math.cos(a)*orb,c0.y+Math.sin(a*1.3)*20,c0.z+Math.sin(a)*orb);
+        SP[n.id]=p;
+        const c=new THREE.Color(COL[n.type]||0x9fb6cf);pps.push(p.x,p.y,p.z);ccs.push(c.r,c.g,c.b);
+      });
+      const g3=new THREE.BufferGeometry();
+      g3.setAttribute('position',new THREE.Float32BufferAttribute(pps,3));
+      g3.setAttribute('color',new THREE.Float32BufferAttribute(ccs,3));
+      GSYS.add(new THREE.Points(g3,new THREE.PointsMaterial({size:6.4,vertexColors:true,transparent:true,
+        opacity:0.90,sizeAttenuation:true,map:TEX,depthWrite:false,alphaTest:0.05})));
+    }
+  });
+  const free=lst.filter(n=>!SP[n.id]);
+  if(free.length){
+    const fp=[],fc=[];
+    const FB=SYSR*1.02;
+    free.forEach((n,k)=>{
+      const v=fib(k,free.length,FB);
+      const rr=Math.sqrt(v.x*v.x+v.z*v.z)||1;
+      const band=FB*(0.34+0.66*Math.abs(Math.sin(k*0.77)))*1.0;
+      const p=new THREE.Vector3(v.x/rr*band*0.96+v.y*0.10,v.y*0.16,v.z/rr*band+0.22*band*Math.sin(k*2.1));SP[n.id]=p;
+      const c=new THREE.Color(COL[n.type]||0x9fb6cf);fp.push(p.x,p.y,p.z);fc.push(c.r,c.g,c.b);
+    });
+    const g4=new THREE.BufferGeometry();
+    g4.setAttribute('position',new THREE.Float32BufferAttribute(fp,3));
+    g4.setAttribute('color',new THREE.Float32BufferAttribute(fc,3));
+    GSYS.add(new THREE.Points(g4,new THREE.PointsMaterial({size:10.2,vertexColors:true,transparent:true,
+      opacity:0.90,sizeAttenuation:true,map:TEX,depthWrite:false,alphaTest:0.04})));
+    const belt=[];
+    for(let j=0;j<=72;j++){const a=j*Math.PI*2/72;
+      belt.push(new THREE.Vector3(Math.cos(a)*FB*1.02,0,Math.sin(a)*FB*1.02));}
+    GSYS.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(belt),
+      new THREE.LineBasicMaterial({color:gcol,transparent:true,opacity:0.09})));
+  }
+  GSYS.visible=true;
+  dist=1780;lookingAt=new THREE.Vector3(0,0,0);cur=null;yaw=0.55;pitch=0.55;
+  const st=GST[gid]||{n:0,star:0,pl:0,sa:0};
+  const btn=document.getElementById('galBtn');
+  if(btn)btn.textContent='返回银河';
   const gs=document.getElementById('gstat');
-  if(gs)gs.textContent='进入 '+(GALMETA[gid]||{name:gid}).name+' · '+s.n+' 节点 · '+s.star+' 恒星（点「全显」复原全部）';
-  dist=900;
+  if(gs)gs.textContent=m.name+' · '+lst.length+' 节点（'+st.star+' 恒星 / '+st.pl+' 行星 / '+st.sa+' 卫星）\n点恒星或行星看详情 · 拖拽旋转';
 }
-window.__galProbe=()=>({mode:GMODE,galaxies:GALORDER.length,pos:GALPOS,pick:GALPICK.length,
-  stat:GST});
+window.__galScreen=(gid)=>{const v=(GALPOS[gid]||new THREE.Vector3()).clone().project(cam);
+  return {x:(v.x+1)/2*innerWidth,y:(-v.y+1)/2*innerHeight};};
+window.__sysScreen=()=>{const out=[];GSPICK.forEach(m=>{const v=m.position.clone().project(cam);
+  out.push({id:m.userData&&m.userData.node?m.userData.node.id:'',x:(v.x+1)/2*innerWidth,y:(-v.y+1)/2*innerHeight});});
+  return out;};
+window.__galProbe=()=>({mode:GMODE,sys:SYSMODE,sysGal:SYSGAL,galaxies:GALORDER.length,
+  pos:GALPOS,pick:GALPICK.length,pickSys:GSPICK.length,flow:GALFLOW.length,
+  sysChildren:GSYS.children.length,stat:GST});
 
 /* ===== 学习状态：掌握度着色 + 间隔复习（localStorage 持久化） ===== */
 const KGV={hide:[],mast:{},rev:{}};
@@ -814,6 +987,14 @@ function dnEnd(){
 }
 rnd.domElement.addEventListener('pointerdown',e=>{
   if(e.button===2)return;
+  if(SYSMODE){
+    const m3=new THREE.Vector2((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1);
+    RDG.setFromCamera(m3,cam);
+    const hs=RDG.intersectObjects(GSPICK,false);
+    if(hs.length){const u3=hs[0].object.userData;
+      if(u3&&u3.node){cur=u3.node;showPanel(u3.node);return;}}
+    dragging=true;px=e.clientX;py=e.clientY;moved=0;return;
+  }
   if(GMODE){
     const m2=new THREE.Vector2((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1);
     RDG.setFromCamera(m2,cam);
@@ -1762,17 +1943,19 @@ sqEl0.addEventListener('blur',()=>{setTimeout(()=>{if(!cur)spin=spinOn;},260);})
 document.getElementById('spinT').onclick=()=>{spinOn=!spinOn;spin=spinOn&&!cur;if(spinOn)pit0=pitch-Math.sin(ph)*0.10;syncSpinUI();};
 document.getElementById('spinRev').onclick=()=>{spinDir=-spinDir;syncSpinUI();};
 document.querySelectorAll('[data-sp]').forEach(b=>{b.onclick=()=>{spinSp=parseFloat(b.dataset.sp);syncSpinUI();};});
-document.getElementById('galBtn').onclick=()=>setMode(!GMODE);
+document.getElementById('galBtn').onclick=()=>{if(SYSMODE){exitSys();return;}setMode(!GMODE);};
 syncSpinUI();
 let _last=performance.now();
 (function loop(){
   requestAnimationFrame(loop);
   const _now=performance.now();const _dt=Math.min(_now-_last,120);_last=_now;const _f=_dt/16.667;
-  if(spin&&!cur&&!GMODE){
+  if(spin&&!cur&&!GMODE&&!SYSMODE){
     yaw+=0.0021*spinSp*spinDir*_f;
     ph+=0.0016*spinSp*_f;
     pitch=pit0+Math.sin(ph)*0.10;
   }
+  if(GMODE&&GALFLOW.length){for(let i=0;i<GALFLOW.length;i++){const f=GALFLOW[i];
+    f.t+=f.v*_f;if(f.t>1)f.t-=1;f.sp.position.lerpVectors(f.a,f.b,f.t);}}
   applyCam();rnd.render(scene,cam);
 })();
 const lcolBtn=document.getElementById('lcolBtn');
