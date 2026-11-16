@@ -874,7 +874,7 @@ function enterGalaxy(gid){
       new THREE.LineBasicMaterial({color:gcol,transparent:true,opacity:0.09})));
   }
   GSYS.visible=true;
-  dist=1960;lookingAt=new THREE.Vector3(0,0,0);cur=null;yaw=0.55;pitch=0.55;
+  dist=(stars.length<=6?1980:1800);lookingAt=new THREE.Vector3(0,0,0);cur=null;yaw=0.55;pitch=0.55;
   const st=GST[gid]||{n:0,star:0,pl:0,sa:0};
   const btn=document.getElementById('galBtn');
   if(btn)btn.textContent='返回银河';
