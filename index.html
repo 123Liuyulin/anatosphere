@@ -298,7 +298,7 @@ body.light #ctl .vrow .vb{background:rgba(20,60,110,.07);color:#27405a;border-co
 </style></head><body>
 <button id="lcolBtn" title="收起/展开左栏">‹</button>
 <button id="rcolBtn" title="收起/展开右侧数据面板">›</button>
-<div id="hud"><h1>解剖星穹</h1><p class="sub">AnatoSphere<span class="dot">·</span>人体结构三维知识图谱<span class="dot">·</span><span style="letter-spacing:.06em">v2.75.0</span></p><p id="stat">加载中…</p></div>
+<div id="hud"><h1>解剖星穹</h1><p class="sub">AnatoSphere<span class="dot">·</span>人体结构三维知识图谱<span class="dot">·</span><span style="letter-spacing:.06em">v2.76.0</span></p><p id="stat">加载中…</p></div>
 <div id="tip">拖拽旋转 · 按住选中节点连带邻居拖动（松手归位） · 滚轮缩放 · 点节点展开关联</div>
 <div id="bc"></div>
 <div id="rv"><div class="rvh"><span>间隔复习 · 到期清单</span><span id="rvClose">关闭 ×</span></div><div id="rvList"></div>
@@ -384,7 +384,7 @@ body.light #ctl .vrow .vb{background:rgba(20,60,110,.07);color:#27405a;border-co
 <div id="ex634"><div class="eh"><b>634 医学技术综合 · 解剖考点对照</b><span id="exStat">点划线处节点名可直达球体　</span><span><button id="exX" style="background:none;border:none;color:#879bb5;font-size:15px;cursor:pointer;font-family:inherit">×</button></span></div><div id="exBody"></div></div>
 <div id="quiz"><div class="qh"><span id="qzh">自测</span><button id="qzx" title="退出自测">×</button></div>
 <div id="qzlay"></div><div class="qq" id="qzq"></div><div id="qzo"></div><div id="qzfb"></div></div>
-<script>window.__VER="v2.75.0";</script>
+<script>window.__VER="v2.76.0";</script>
 <script>console.warn('Scripts "build/three.js" and "build/three.min.js" are deprecated with r150+, and will be removed with r160. Please use ES Modules or alternatives: https://threejs.org/docs/index.html#manual/en/introduction/Installation'),
 /**
  * @license
@@ -773,13 +773,13 @@ function relabel(){
     placed.push({x:sx,y:sy});
     o.sp.position.set(o.base.x,o.base.y-step*52,o.base.z);
     const m0=o.sp.material;if(m0){if(m0._o0==null)m0._o0=m0.opacity;
-      m0.opacity=(FOCUSSTAR&&o.sid!==FOCUSSTAR)?m0._o0*0.30:m0._o0;}
+      m0.opacity=(FOCUSSTAR&&o.sid!==FOCUSSTAR)?0:m0._o0;}
   });
 }
 function _dimStars(id){
   GSPICK.forEach(m=>{const u=m.userData;if(!u||u.kind!=='star'||!u.node)return;
     if(m.userData._o0==null)m.userData._o0=m.material.opacity;
-    m.material.opacity=(u.node.id===id)?m.userData._o0:Math.min(m.userData._o0,0.40);});
+    m.material.opacity=(u.node.id===id)?m.userData._o0:Math.min(m.userData._o0,0.10);});
   STARGLOW.forEach(g=>{const u=g.userData;if(!u||!u.node)return;
     if(g.userData._o0==null)g.userData._o0=g.material.opacity;
     g.material.opacity=(u.node.id===id)?g.userData._o0:Math.min(g.userData._o0,0.07);});
@@ -923,13 +923,13 @@ function enterGalaxy(gid){
     const sats=lst.filter(n=>n.tier==='satellite'&&n.host===s.id&&!n.host_planet);
     const np=Math.max(1,pls.length);
     pls.forEach((n,k)=>{
-      const t=np===1?0.35:Math.pow(k/(np-1),0.66);
-      const orbTop=Math.min(SYSR*1.12,R+80+np*11);
-      const orb=R*1.6+(orbTop-R*1.6)*t,ang=k*2.399963;
+      const t=np===1?0.42:(k/(np-1));
+      const orbTop=Math.min(SYSR*1.14,R+92+np*17);
+      const orb=R*1.65+(orbTop-R*1.65)*t,ang=k*2.399963;
       const p=new THREE.Vector3(c0.x+Math.cos(ang)*orb,c0.y+Math.sin(ang*1.7)*26,c0.z+Math.sin(ang)*orb);
       SP[n.id]=p;
       const soft=(n.host_kind==='shared'||n.host_kind==='main');
-      const rp=(soft?4.2:5.4)+(soft?4.4:6.0)*(n.deg||5)/maxDeg;
+      const rp=((soft?4.2:5.4)+(soft?4.4:6.0)*(n.deg||5)/maxDeg)*(np>14?0.80:1);
       const mesh=new THREE.Mesh(new THREE.SphereGeometry(rp,14,10),
         new THREE.MeshBasicMaterial({color:COL[n.type]||col,transparent:true,opacity:soft?0.58:0.97}));
       mesh.position.copy(p);mesh.userData={node:n,kind:'planet'};GSYS.add(mesh);GSPICK.push(mesh);
