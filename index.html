@@ -298,7 +298,7 @@ body.light #ctl .vrow .vb{background:rgba(20,60,110,.07);color:#27405a;border-co
 </style></head><body>
 <button id="lcolBtn" title="收起/展开左栏">‹</button>
 <button id="rcolBtn" title="收起/展开右侧数据面板">›</button>
-<div id="hud"><h1>解剖星穹</h1><p class="sub">AnatoSphere<span class="dot">·</span>人体结构三维知识图谱<span class="dot">·</span><span style="letter-spacing:.06em">v2.72.0</span></p><p id="stat">加载中…</p></div>
+<div id="hud"><h1>解剖星穹</h1><p class="sub">AnatoSphere<span class="dot">·</span>人体结构三维知识图谱<span class="dot">·</span><span style="letter-spacing:.06em">v2.73.0</span></p><p id="stat">加载中…</p></div>
 <div id="tip">拖拽旋转 · 按住选中节点连带邻居拖动（松手归位） · 滚轮缩放 · 点节点展开关联</div>
 <div id="bc"></div>
 <div id="rv"><div class="rvh"><span>间隔复习 · 到期清单</span><span id="rvClose">关闭 ×</span></div><div id="rvList"></div>
@@ -384,7 +384,7 @@ body.light #ctl .vrow .vb{background:rgba(20,60,110,.07);color:#27405a;border-co
 <div id="ex634"><div class="eh"><b>634 医学技术综合 · 解剖考点对照</b><span id="exStat">点划线处节点名可直达球体　</span><span><button id="exX" style="background:none;border:none;color:#879bb5;font-size:15px;cursor:pointer;font-family:inherit">×</button></span></div><div id="exBody"></div></div>
 <div id="quiz"><div class="qh"><span id="qzh">自测</span><button id="qzx" title="退出自测">×</button></div>
 <div id="qzlay"></div><div class="qq" id="qzq"></div><div id="qzo"></div><div id="qzfb"></div></div>
-<script>window.__VER="v2.72.0";</script>
+<script>window.__VER="v2.73.0";</script>
 <script>console.warn('Scripts "build/three.js" and "build/three.min.js" are deprecated with r150+, and will be removed with r160. Please use ES Modules or alternatives: https://threejs.org/docs/index.html#manual/en/introduction/Installation'),
 /**
  * @license
@@ -856,6 +856,21 @@ function enterGalaxy(gid){
       opacity:0.92,sizeAttenuation:true,map:TEX,depthWrite:false,alphaTest:0.05})));
   }
   const gcol=(GALMETA[gid]||{}).col||0xffffff;
+  const bglow=new THREE.Sprite(new THREE.SpriteMaterial({map:BLOB,color:gcol,transparent:true,
+    opacity:0.24,depthWrite:false,blending:THREE.AdditiveBlending}));
+  bglow.scale.set(SYSR*1.06,SYSR*0.64,1);bglow.position.set(0,-34,0);GSYS.add(bglow);
+  const _hp={};lst.forEach(n=>{const h=n.host||n.host_planet;if(h&&SP[h])_hp[n.id]=h;});
+  const _pair={};
+  DATA.links.forEach(l=>{const a=_hp[l.source],b=_hp[l.target];
+    if(a&&b&&a!==b){const k=(a<b?a+'|'+b:b+'|'+a);_pair[k]=(_pair[k]||0)+1;}});
+  Object.keys(_pair).sort((x,y)=>_pair[y]-_pair[x]).slice(0,10).filter(k=>_pair[k]>=3).forEach(k=>{
+    const a=k.split('|')[0],b=k.split('|')[1],p1=SP[a],p2=SP[b];if(!p1||!p2)return;
+    const dd=p1.distanceTo(p2);if(dd>SYSR*0.82)return;
+    const mid=p1.clone().add(p2).multiplyScalar(0.5);mid.y+=dd*0.22;
+    const pts=new THREE.QuadraticBezierCurve3(p1,mid,p2).getPoints(24);
+    GSYS.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+      new THREE.LineBasicMaterial({color:gcol,transparent:true,opacity:0.34})));
+  });
   const satByP={};
   lst.forEach(n=>{if(n.tier==='satellite'&&n.host_planet){(satByP[n.host_planet]=satByP[n.host_planet]||[]).push(n);}});
   stars.forEach(s=>{
@@ -956,7 +971,7 @@ function enterGalaxy(gid){
     const A=GALPOS[gid],B=GALPOS[gg];if(!A||!B)return;
     const dx=B.x-A.x,dz=B.z-A.z,dl=Math.hypot(dx,dz);if(dl<1)return;
     const ux=dx/dl,uz=dz/dl,mt=GALMETA[gg]||{},cc=mt.col||0xffffff;
-    const lb=labelSprite('→ '+mt.name+'  '+_cc[gg],new THREE.Color(cc).lerp(new THREE.Color(0xffffff),0.45),0.88);
+    const lb=labelSprite('通道 · '+mt.name+'  '+_cc[gg],new THREE.Color(cc).lerp(new THREE.Color(0xffffff),0.45),0.88);
     lb.position.set(ux*SYSR*1.56,108,uz*SYSR*1.56);GSYS.add(lb);SYSMARK.push(lb);
     const L1=new THREE.Vector3(ux*SYSR*1.20,0,uz*SYSR*1.20);
     const L2=new THREE.Vector3(ux*SYSR*1.50,0,uz*SYSR*1.50);
