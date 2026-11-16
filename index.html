@@ -298,7 +298,7 @@ body.light #ctl .vrow .vb{background:rgba(20,60,110,.07);color:#27405a;border-co
 </style></head><body>
 <button id="lcolBtn" title="收起/展开左栏">‹</button>
 <button id="rcolBtn" title="收起/展开右侧数据面板">›</button>
-<div id="hud"><h1>解剖星穹</h1><p class="sub">AnatoSphere<span class="dot">·</span>人体结构三维知识图谱<span class="dot">·</span><span style="letter-spacing:.06em">v2.71.0</span></p><p id="stat">加载中…</p></div>
+<div id="hud"><h1>解剖星穹</h1><p class="sub">AnatoSphere<span class="dot">·</span>人体结构三维知识图谱<span class="dot">·</span><span style="letter-spacing:.06em">v2.72.0</span></p><p id="stat">加载中…</p></div>
 <div id="tip">拖拽旋转 · 按住选中节点连带邻居拖动（松手归位） · 滚轮缩放 · 点节点展开关联</div>
 <div id="bc"></div>
 <div id="rv"><div class="rvh"><span>间隔复习 · 到期清单</span><span id="rvClose">关闭 ×</span></div><div id="rvList"></div>
@@ -384,7 +384,7 @@ body.light #ctl .vrow .vb{background:rgba(20,60,110,.07);color:#27405a;border-co
 <div id="ex634"><div class="eh"><b>634 医学技术综合 · 解剖考点对照</b><span id="exStat">点划线处节点名可直达球体　</span><span><button id="exX" style="background:none;border:none;color:#879bb5;font-size:15px;cursor:pointer;font-family:inherit">×</button></span></div><div id="exBody"></div></div>
 <div id="quiz"><div class="qh"><span id="qzh">自测</span><button id="qzx" title="退出自测">×</button></div>
 <div id="qzlay"></div><div class="qq" id="qzq"></div><div id="qzo"></div><div id="qzfb"></div></div>
-<script>window.__VER="v2.71.0";</script>
+<script>window.__VER="v2.72.0";</script>
 <script>console.warn('Scripts "build/three.js" and "build/three.min.js" are deprecated with r150+, and will be removed with r160. Please use ES Modules or alternatives: https://threejs.org/docs/index.html#manual/en/introduction/Installation'),
 /**
  * @license
@@ -695,6 +695,7 @@ const GALFLOW=[];
 })();
 let GMODE=false;
 const GSYS=new THREE.Group();GSYS.visible=false;scene.add(GSYS);
+const SYSBELS=[];const SYSMARK=[];
 const GSPICK=[];let SYSMODE=false,SYSGAL=null;
 function gsClear(){
   while(GSYS.children.length){
@@ -759,7 +760,22 @@ function hoverSys(e){
   galTip.style.left=(e.clientX+15)+'px';
   galTip.style.top=(e.clientY+12)+'px';
 }
-function exitSys(){SYSMODE=false;SYSGAL=null;GSYS.visible=false;gsClear();_hvOff();setMode(true);}
+let _lbTick=0;
+function relabel(){
+  if(!SYSMODE||!SYSBELS.length)return;
+  if((_lbTick++%3)!==0)return;
+  const placed=[],v=new THREE.Vector3();
+  SYSBELS.forEach(o=>{
+    v.copy(o.base).project(cam);
+    const sx=(v.x+1)/2*innerWidth;
+    let sy=(-v.y+1)/2*innerHeight,step=0;
+    while(step<4&&placed.some(q=>Math.abs(q.x-sx)<92&&Math.abs(q.y-sy)<28)){sy+=29;step++;}
+    placed.push({x:sx,y:sy});
+    o.sp.position.set(o.base.x,o.base.y-step*52,o.base.z);
+  });
+}
+function exitSys(){SYSMODE=false;SYSGAL=null;GSYS.visible=false;gsClear();_hvOff();
+  SYSBELS.length=0;SYSMARK.length=0;setMode(true);}
 function galStat(){
   const tot=['n','star','pl','sa'];
   const sum={};tot.forEach(k=>{sum[k]=0;Object.keys(GST).forEach(g=>sum[k]+=(GST[g][k]||0));});
@@ -806,7 +822,7 @@ function enterGalaxy(gid){
       const dd=Math.max(1,Math.hypot(p.x,p.z));
       const off=(R*2.2+62)*(isCore?1.5:1);
       lb.position.set(p.x+p.x/dd*off,p.y+off*0.52,p.z+p.z/dd*off);
-      GSYS.add(lb);
+      GSYS.add(lb);SYSBELS.push({sp:lb,base:lb.position.clone()});
     }
   };
   if(stars.length){
@@ -932,6 +948,21 @@ function enterGalaxy(gid){
   const btn=document.getElementById('galBtn');
   if(btn)btn.textContent='返回银河';
   const gs=document.getElementById('gstat');
+  // 跨星系方向标：盘面外圈指向有实际连接的相邻星系
+  const _cc={};
+  lst.forEach(n=>{if(n.host_cross){const c=NODEBYID[n.host_cross];
+    if(c&&c.gal&&c.gal!==gid)_cc[c.gal]=(_cc[c.gal]||0)+1;}});
+  Object.keys(_cc).filter(k=>_cc[k]>=10).forEach(gg=>{
+    const A=GALPOS[gid],B=GALPOS[gg];if(!A||!B)return;
+    const dx=B.x-A.x,dz=B.z-A.z,dl=Math.hypot(dx,dz);if(dl<1)return;
+    const ux=dx/dl,uz=dz/dl,mt=GALMETA[gg]||{},cc=mt.col||0xffffff;
+    const lb=labelSprite('→ '+mt.name+'  '+_cc[gg],new THREE.Color(cc).lerp(new THREE.Color(0xffffff),0.45),0.88);
+    lb.position.set(ux*SYSR*1.56,108,uz*SYSR*1.56);GSYS.add(lb);SYSMARK.push(lb);
+    const L1=new THREE.Vector3(ux*SYSR*1.20,0,uz*SYSR*1.20);
+    const L2=new THREE.Vector3(ux*SYSR*1.50,0,uz*SYSR*1.50);
+    GSYS.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([L1,L2]),
+      new THREE.LineBasicMaterial({color:cc,transparent:true,opacity:0.30})));
+  });
   const _soft=lst.filter(n=>n.host_kind==='shared'||n.host_kind==='main').length;
   if(gs)gs.textContent=m.name+' · '+lst.length+' 节点（'+st.star+' 恒星 / '+st.pl+' 行星 / '+st.sa+' 卫星）\n'
     +'次级归属 '+_soft+' 个（浅色小点）· 恒星/行星/卫星均可点';
@@ -2041,6 +2072,7 @@ let _last=performance.now();
   }
   if(GMODE&&GALFLOW.length){for(let i=0;i<GALFLOW.length;i++){const f=GALFLOW[i];
     f.t+=f.v*_f;if(f.t>1)f.t-=1;f.sp.position.lerpVectors(f.a,f.b,f.t);}}
+  if(SYSMODE)relabel();
   applyCam();rnd.render(scene,cam);
 })();
 const lcolBtn=document.getElementById('lcolBtn');
