@@ -298,7 +298,7 @@ body.light #ctl .vrow .vb{background:rgba(20,60,110,.07);color:#27405a;border-co
 </style></head><body>
 <button id="lcolBtn" title="收起/展开左栏">‹</button>
 <button id="rcolBtn" title="收起/展开右侧数据面板">›</button>
-<div id="hud"><h1>解剖星穹</h1><p class="sub">AnatoSphere<span class="dot">·</span>人体结构三维知识图谱<span class="dot">·</span><span style="letter-spacing:.06em">v2.99.0</span></p><p id="stat">加载中…</p></div>
+<div id="hud"><h1>解剖星穹</h1><p class="sub">AnatoSphere<span class="dot">·</span>人体结构三维知识图谱<span class="dot">·</span><span style="letter-spacing:.06em">v3.0.17</span></p><p id="stat">加载中…</p></div>
 <div id="tip">拖拽旋转 · 按住选中节点连带邻居拖动（松手归位） · 滚轮缩放 · 点节点展开关联</div>
 <div id="bc"></div>
 <div id="rv"><div class="rvh"><span>间隔复习 · 到期清单</span><span id="rvClose">关闭 ×</span></div><div id="rvList"></div>
@@ -385,7 +385,7 @@ body.light #ctl .vrow .vb{background:rgba(20,60,110,.07);color:#27405a;border-co
 <div id="ex634"><div class="eh"><b>634 医学技术综合 · 解剖考点对照</b><span id="exStat">点划线处节点名可直达球体　</span><span><button id="exX" style="background:none;border:none;color:#879bb5;font-size:15px;cursor:pointer;font-family:inherit">×</button></span></div><div id="exBody"></div></div>
 <div id="quiz"><div class="qh"><span id="qzh">自测</span><button id="qzx" title="退出自测">×</button></div>
 <div id="qzlay"></div><div class="qq" id="qzq"></div><div id="qzo"></div><div id="qzfb"></div></div>
-<script>window.__VER="v2.99.0";</script>
+<script>window.__VER="v3.0.17";</script>
 <script>console.warn('Scripts "build/three.js" and "build/three.min.js" are deprecated with r150+, and will be removed with r160. Please use ES Modules or alternatives: https://threejs.org/docs/index.html#manual/en/introduction/Installation'),
 /**
  * @license
@@ -593,7 +593,7 @@ const GPAIR={};
 DATA.links.forEach(l=>{const a=NMAP[l.source],b=NMAP[l.target];
   if(!a||!b||!a.gal||!b.gal||a.gal===b.gal)return;const k=[a.gal,b.gal].sort().join('|');GPAIR[k]=(GPAIR[k]||0)+1;});
 const GALX=new THREE.Group();GALX.visible=false;scene.add(GALX);
-const GALPICK=[],GALPOS={},GALR={};
+const GALPICK=[],GALPOS={},GALR={},GALDRUN=[];
 function labelSprite(txt,hex,scale){
   const f=64,pad=44,c=document.createElement('canvas'),g0=c.getContext('2d');
   g0.font='600 '+f+'px "Noto Sans SC",system-ui,sans-serif';
@@ -616,20 +616,47 @@ const GXC={};
 DATA.links.forEach(l=>{const a=NODEBYID[l.source],b=NODEBYID[l.target];
   if(!a||!b||!a.gal||!b.gal||a.gal===b.gal)return;
   (GXC[a.gal]=GXC[a.gal]||{})[b.gal]=1;(GXC[b.gal]=GXC[b.gal]||{})[a.gal]=1;});
+// 银河中心核球：两旋臂的公共中心，一层亮核 + 一片核球星尘
+(()=>{
+  const core=new THREE.Sprite(new THREE.SpriteMaterial({map:BLOB,color:0xffe6b8,transparent:true,
+    opacity:0.50,depthWrite:false,blending:THREE.AdditiveBlending}));
+  core.scale.set(320,320*0.62,1);core.position.set(0,0,0);GALX.add(core);
+  const ring=new THREE.Sprite(new THREE.SpriteMaterial({map:TEX2,color:0xffd79a,transparent:true,
+    opacity:0.34,depthWrite:false,blending:THREE.AdditiveBlending}));
+  ring.scale.set(230,230*0.66,1);ring.position.set(0,0,0);GALX.add(ring);
+  const pos=[],col=[];
+  for(let i=0;i<260;i++){
+    const a=Math.random()*Math.PI*2;
+    const rr=Math.pow(Math.random(),0.55)*150;
+    pos.push(Math.cos(a)*rr,Math.sin(a)*rr*0.30+(Math.random()-0.5)*16,Math.sin(a)*rr);
+    const c=new THREE.Color().setHSL(0.10+Math.random()*0.04,0.55,0.66+Math.random()*0.22);
+    col.push(c.r,c.g,c.b);
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
+  GALX.add(new THREE.Points(g,new THREE.PointsMaterial({size:4.2,vertexColors:true,transparent:true,
+    opacity:0.66,sizeAttenuation:true,map:TEX,depthWrite:false,alphaTest:0.03,blending:THREE.AdditiveBlending})));
+})();
 GALORDER.forEach((gid,i)=>{
   const m=GALMETA[gid],s=GST[gid]||{n:0,star:0};
-  const ang=i*Math.PI*2/GALORDER.length+0.92;
   const r=Math.max(54,32+3.7*Math.sqrt(s.n));
-  const rad=GRING*(i%2===0?1.12:0.80);
-  const p=new THREE.Vector3(Math.cos(ang)*rad,Math.sin(i*1.9)*58,Math.sin(ang)*rad);
+  // 银河系式布局：七盘分别挂在两条对数旋臂上，外圈依次推进
+  const _arm=i%2,_k=i,_t=i/Math.max(1,GALORDER.length-1);
+  const rad=300+760*_t;
+  const ang=(_arm?Math.PI:0)+Math.log(rad/300)*1.9+_k*0.05+0.92;
+  const p=new THREE.Vector3(Math.cos(ang)*rad,Math.sin(i*1.9)*46,Math.sin(ang)*rad);
   GALPOS[gid]=p;GALR[gid]=r;
+  const dt=new THREE.Group();dt.position.copy(p);dt.rotation.x=((i%3)-1)*0.16;GALX.add(dt);
+  const dgrp=new THREE.Group();dt.add(dgrp);
+  GALDRUN.push({g:dgrp,rad:rad,k:i});
   const shell=new THREE.Mesh(new THREE.SphereGeometry(r,26,18),
     new THREE.MeshBasicMaterial({color:m.col,transparent:true,opacity:0.12,depthWrite:false,side:THREE.DoubleSide}));
-  shell.position.copy(p);shell.scale.set(1,0.40,1);shell.userData={gal:gid};GALX.add(shell);GALPICK.push(shell);
+  shell.position.set(0,0,0);shell.scale.set(1,0.40+(i%3)*0.05,1);shell.userData={gal:gid};dt.add(shell);GALPICK.push(shell);
   const core=new THREE.Sprite(new THREE.SpriteMaterial({map:BLOB,color:m.col,transparent:true,opacity:0.62,depthWrite:false,blending:THREE.AdditiveBlending}));
-  core.position.copy(p);core.scale.set(r*2.7,r*2.7*0.52,1);GALX.add(core);
+  core.position.set(0,0,0);core.scale.set(r*2.7,r*2.7*0.52,1);dt.add(core);
   const ring=new THREE.Sprite(new THREE.SpriteMaterial({map:TEX2,color:m.col,transparent:true,opacity:0.55,depthWrite:false,blending:THREE.AdditiveBlending}));
-  ring.position.copy(p);ring.scale.set(r*2.3,r*2.3*0.5,1);GALX.add(ring);
+  ring.position.set(0,0,0);ring.scale.set(r*2.3,r*2.3*0.5,1);dt.add(ring);
   // 星系内的恒星点（按 tier=star 的节点数撒，不画行星，避免一屏太密）
   if(s.star>0){
     const _sh=(DATA.gs&&DATA.gs[gid])||{arms:2,bulge:3,bar:0};
@@ -648,7 +675,7 @@ GALORDER.forEach((gid,i)=>{
         const rr=r*(0.42+0.52*t),an=arm*Math.PI*2/A+2.95*t+0.55;
         vx=Math.cos(an)*rr;vz=Math.sin(an)*rr;vy=Math.sin(k*1.9)*r*0.10;
       }
-      pp.push(p.x+vx,p.y+vy*0.55,p.z+vz);
+      pp.push(vx,vy*0.55,vz);
       const c1=new THREE.Color(m.col),c2=new THREE.Color(0xffffff);
       const mix=(k%4===0)?c2:c1;cc.push(mix.r,mix.g,mix.b);
     });
@@ -659,19 +686,19 @@ GALORDER.forEach((gid,i)=>{
       if(_sh.bar){vx=r*(Math.random()*1.6-0.8);vz=(Math.random()-0.5)*r*0.16;}
       else{const arm=i%A,tt=Math.random(),rr=r*(0.40+0.62*tt),an=arm*Math.PI*2/A+2.95*tt+0.55+(Math.random()-0.5)*0.22;
         vx=Math.cos(an)*rr+(Math.random()-0.5)*r*0.06;vz=Math.sin(an)*rr+(Math.random()-0.5)*r*0.06;}
-      dp.push(p.x+vx,p.y+(Math.random()-0.5)*r*0.16,p.z+vz);
+      dp.push(vx,(Math.random()-0.5)*r*0.16,vz);
       const c=new THREE.Color(m.col).lerp(new THREE.Color(0xffffff),0.55+Math.random()*0.4);
       dc.push(c.r,c.g,c.b);
     }
     const g2=new THREE.BufferGeometry();
     g2.setAttribute('position',new THREE.Float32BufferAttribute(pp,3));
     g2.setAttribute('color',new THREE.Float32BufferAttribute(cc,3));
-    GALX.add(new THREE.Points(g2,new THREE.PointsMaterial({size:7.6,vertexColors:true,transparent:true,
+    dgrp.add(new THREE.Points(g2,new THREE.PointsMaterial({size:7.6,vertexColors:true,transparent:true,
       opacity:0.95,sizeAttenuation:true,map:TEX,depthWrite:false,alphaTest:0.06,blending:THREE.AdditiveBlending})));
     const g3=new THREE.BufferGeometry();
     g3.setAttribute('position',new THREE.Float32BufferAttribute(dp,3));
     g3.setAttribute('color',new THREE.Float32BufferAttribute(dc,3));
-    GALX.add(new THREE.Points(g3,new THREE.PointsMaterial({size:2.6,vertexColors:true,transparent:true,
+    dgrp.add(new THREE.Points(g3,new THREE.PointsMaterial({size:2.6,vertexColors:true,transparent:true,
       opacity:0.42,sizeAttenuation:true,map:TEX,depthWrite:false,blending:THREE.AdditiveBlending})));
   }
   const _lc=new THREE.Color(m.col).lerp(new THREE.Color(0xffffff),0.58);
@@ -682,7 +709,7 @@ GALORDER.forEach((gid,i)=>{
   sb.position.set(p.x,p.y-r*0.42-108,p.z);GALX.add(sb);
 });
 // 航道：粒子丝带（沿两星系之间撒点，中段鼓、两端细，不做整条直线）
-const GALFLOW=[];
+const GALFLOW=[],STARRUN=[],DUSTRUN=[];
 (()=>{
   let mx=1;Object.keys(GPAIR).forEach(k=>{if(GPAIR[k]>mx)mx=GPAIR[k];});
   const up=new THREE.Vector3(0,1,0);
@@ -696,7 +723,8 @@ const GALFLOW=[];
     const per2=new THREE.Vector3().crossVectors(dir,per).normalize();
     const ca=new THREE.Color((GALMETA[a]||{}).col||0x88aacc),cb=new THREE.Color((GALMETA[b]||{}).col||0x88aacc);
     const mix=ca.clone().lerp(cb,0.55);
-    const N=Math.round(96+84*w),pp=[],cc=[];
+    const tier=(w>=0.70?2:(w>=0.50?1:0));
+    const N=(tier===2?Math.round(96+84*w):(tier===1?Math.round(46+52*w):0)),pp=[],cc=[];
     for(let i=0;i<N;i++){
       const t=i/(N-1),bell=Math.sin(Math.PI*t);
       const spread=(6+16*w)*bell*0.5;
@@ -710,15 +738,17 @@ const GALFLOW=[];
     }
     GALX.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([pa,pb]),
       new THREE.LineBasicMaterial({color:mix.clone().lerp(new THREE.Color(0xffffff),0.42),
-        transparent:true,opacity:(w>=0.85?0.42:(w>=0.70?0.24:(w>=0.60?0.15:0.085))),
+        transparent:true,opacity:(tier===2?(w>=0.85?0.42:0.24):(tier===1?0.10:0.032)),
         blending:THREE.AdditiveBlending,depthWrite:false})));
-    const g=new THREE.BufferGeometry();
-    g.setAttribute('position',new THREE.Float32BufferAttribute(pp,3));
-    g.setAttribute('color',new THREE.Float32BufferAttribute(cc,3));
-    GALX.add(new THREE.Points(g,new THREE.PointsMaterial({size:5.4+2.8*w,vertexColors:true,
-      transparent:true,opacity:0.34+0.46*w,sizeAttenuation:true,map:TEX,depthWrite:false,
-      alphaTest:0.03,blending:THREE.AdditiveBlending})));
-    const nb=3+Math.round(3*w),spread0=(6+16*w)*0.5;
+    if(N>0){
+      const g=new THREE.BufferGeometry();
+      g.setAttribute('position',new THREE.Float32BufferAttribute(pp,3));
+      g.setAttribute('color',new THREE.Float32BufferAttribute(cc,3));
+      GALX.add(new THREE.Points(g,new THREE.PointsMaterial({size:(tier===2?5.4+2.8*w:4.2+2.2*w),vertexColors:true,
+        transparent:true,opacity:(tier===2?0.34+0.46*w:0.20+0.24*w),sizeAttenuation:true,map:TEX,depthWrite:false,
+        alphaTest:0.03,blending:THREE.AdditiveBlending})));
+    }
+    const nb=(tier===2?3+Math.round(3*w):(tier===1?2:0)),spread0=(6+16*w)*0.5;
     for(let i=0;i<nb;i++){
       const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:BLOB,color:0xffffff,transparent:true,
         opacity:0.30+0.28*w,depthWrite:false,blending:THREE.AdditiveBlending}));
@@ -880,23 +910,31 @@ function enterGalaxy(gid){
   const stars=lst.filter(n=>n.tier==='star').sort((a,b)=>(b.deg||0)-(a.deg||0));
   const maxDeg=Math.max(30,stars.length?stars[0].deg:30);
   const SP={},R0=16;SYSPOS=SP;window.__SP=SP;
-  const addStar=(node,p,R,isCore,showLb,ls)=>{
+  const addStar=(node,p,R,isCore,showLb,ls,mref)=>{
+    const _bc=new THREE.Color((GALMETA[gid]||{}).col||0xffffff);
+    const _rel=Math.max(0,Math.hypot(p.x,p.z))/Math.max(70,(mref||SYSR));
+    const _cw=(_rel<0.42?0xffd49a:(_rel>0.76?0x9ec8ff:0xffffff));
+    const _wq=(_rel<0.42?0.42:(_rel>0.76?0.34:0.0));
+    const _sc=_wq>0?_bc.clone().lerp(new THREE.Color(_cw),_wq):_bc;
     const mesh=new THREE.Mesh(new THREE.SphereGeometry(R,20,14),
-      new THREE.MeshBasicMaterial({color:(GALMETA[gid]||{}).col||0xffffff,transparent:true,opacity:0.94}));
+      new THREE.MeshBasicMaterial({color:_sc,transparent:true,opacity:0.94}));
     mesh.position.copy(p);mesh.userData={node:node,kind:'star'};GSYS.add(mesh);GSPICK.push(mesh);
     const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:BLOB,color:(GALMETA[gid]||{}).col||0xffffff,
       transparent:true,opacity:0.50,depthWrite:false,blending:THREE.AdditiveBlending}));
     glow.position.copy(p);glow.scale.set(R*5.4,R*5.4,1);
     glow.userData={node:node,kind:'starGlow'};GSYS.add(glow);STARGLOW.push(glow);
+    mesh.userData.glow=glow;
     if(showLb){
-      const lb=labelSprite(node.name,new THREE.Color((GALMETA[gid]||{}).col||0xffffff).lerp(new THREE.Color(0xffffff),0.74),0.94);
+      const lb=labelSprite(node.name,_sc.clone().lerp(new THREE.Color(0xffffff),0.74),0.94);
       const dd=Math.max(1,Math.hypot(p.x,p.z));
       const off=(R*2.2+62)*(isCore?1.5:1);
       lb.position.set(p.x+p.x/dd*off,p.y+off*0.52,p.z+p.z/dd*off);
       if(ls&&ls!==1)lb.scale.multiplyScalar(ls);
+      lb.userData.off=new THREE.Vector3().subVectors(lb.position,p);mesh.userData.lb=lb;
       GSYS.add(lb);if(lb.material&&lb.material._o0==null)lb.material._o0=lb.material.opacity;
       SYSBELS.push({sp:lb,base:lb.position.clone(),sid:node.id});
     }
+    return mesh;
   };
   const SH=(DATA.gs&&DATA.gs[gid])||null;
   if(stars.length){
@@ -908,6 +946,7 @@ function enterGalaxy(gid){
       const rr=SYSR*(0.36+0.56*t)+(k%3===0?SYSR*0.05:0),
             ang=arm*Math.PI*2/ARMS+SPIR*t+0.55+(k%2?0.10:-0.06);
       return {rr:rr,ang:ang};};
+    const _mxr=(stars.length>1&&armPos(stars.length-2).rr)?armPos(stars.length-2).rr:SYSR;
     const SCS=stars.length<=12?1:(stars.length<=30?0.82:0.70);
     const LIM=stars.length<=14?stars.length:(stars.length<=30?22:26),LSC=stars.length<=14?1:(stars.length<=30?0.86:0.74);
     stars.forEach((s,k)=>{
@@ -918,23 +957,36 @@ function enterGalaxy(gid){
         p=new THREE.Vector3(Math.cos(a.ang)*a.rr,(k<NB?(k-2)*96:Math.sin(k*1.9)*72),Math.sin(a.ang)*a.rr);
       }
       SP[s.id]=p;
-      addStar(s,p,(R0+22*(s.deg||30)/maxDeg)*SCS,false,k<LIM,LSC);
+      const _ms=addStar(s,p,(R0+22*(s.deg||30)/maxDeg)*SCS,false,k<LIM,LSC,_mxr);
+      const _rr=Math.hypot(p.x,p.z);
+      if(_rr>2){
+        _ms.userData.starRun={m:_ms,gl:_ms.userData.glow||null,lb:_ms.userData.lb||null,sid:s.id,
+          rr:_rr,ang0:Math.atan2(p.z,p.x),y:p.y,spd:1/Math.sqrt(_rr/60)};
+        s._sr=_ms.userData.starRun;STARRUN.push(_ms.userData.starRun);
+      }
     });
-    const dp=[],dc=[],cnt=Math.min(760,120+stars.length*52);
+    const cnt=Math.min(760,120+stars.length*52);
+    const _DL=[{p:[],c:[],spd:0.000022},{p:[],c:[],spd:0.000013},{p:[],c:[],spd:0.000007}];
     for(let i=0;i<cnt;i++){
       const arm=i%ARMS,tt=Math.random();
       const rr=SYSR*(0.24+0.78*tt)*(0.92+Math.random()*0.18);
       const ang=arm*Math.PI*2/ARMS+SPIR*tt+0.55+(Math.random()-0.5)*0.22;
-      dp.push(Math.cos(ang)*rr+(Math.random()-0.5)*46,(Math.random()-0.5)*96,
-              Math.sin(ang)*rr+(Math.random()-0.5)*46);
+      const _li=(rr<SYSR*0.55?0:(rr<SYSR*0.78?1:2));
+      const L=_DL[_li];
+      L.p.push(Math.cos(ang)*rr+(Math.random()-0.5)*46,(Math.random()-0.5)*96,
+               Math.sin(ang)*rr+(Math.random()-0.5)*46);
       const c=new THREE.Color(GC).lerp(new THREE.Color(0xffffff),0.55+Math.random()*0.35);
-      dc.push(c.r,c.g,c.b);
+      L.c.push(c.r,c.g,c.b);
     }
-    const dg=new THREE.BufferGeometry();
-    dg.setAttribute('position',new THREE.Float32BufferAttribute(dp,3));
-    dg.setAttribute('color',new THREE.Float32BufferAttribute(dc,3));
-    GSYS.add(new THREE.Points(dg,new THREE.PointsMaterial({size:3.4,vertexColors:true,transparent:true,
-      opacity:0.46,sizeAttenuation:true,map:TEX,depthWrite:false,blending:THREE.AdditiveBlending})));
+    _DL.forEach(L=>{
+      if(!L.p.length)return;
+      const dg=new THREE.BufferGeometry();
+      dg.setAttribute('position',new THREE.Float32BufferAttribute(L.p,3));
+      dg.setAttribute('color',new THREE.Float32BufferAttribute(L.c,3));
+      const dust=new THREE.Points(dg,new THREE.PointsMaterial({size:3.4,vertexColors:true,transparent:true,
+        opacity:0.46,sizeAttenuation:true,map:TEX,depthWrite:false,blending:THREE.AdditiveBlending}));
+      GSYS.add(dust);DUSTRUN.push({o:dust,spd:L.spd,n:L.p.length/3});
+    });
   }else{
     if(!stars.length){
       const cn=new THREE.Color((GALMETA[gid]||{}).col||0x9fb6cf);
@@ -991,8 +1043,10 @@ function enterGalaxy(gid){
   }
   const satByP={};
   lst.forEach(n=>{if(n.tier==='satellite'&&n.host_planet){(satByP[n.host_planet]=satByP[n.host_planet]||[]).push(n);}});
-  stars.forEach(s=>{
+  stars.forEach((s,si)=>{
+    const _srot=((si%3)-1)*0.20;
     const c0=SP[s.id],R=R0+22*(s.deg||30)/maxDeg;
+    const c0m=(s._sr&&s._sr.m)?s._sr.m:null;
     const pls=lst.filter(n=>n.tier==='planet'&&n.host===s.id).sort((a,b)=>(b.deg||0)-(a.deg||0));
     const sats=lst.filter(n=>n.tier==='satellite'&&n.host===s.id&&!n.host_planet);
     const np=Math.max(1,pls.length);
@@ -1001,37 +1055,43 @@ function enterGalaxy(gid){
       const _coreGal=(s.id||'').indexOf('__core__')===0;
       const orbTop=Math.min(SYSR*1.14,R+92+np*(np>12?13:17));
       const orb=(_coreGal?R*1.35:R*1.65)+(orbTop-(_coreGal?R*1.35:R*1.65))*t,ang=k*2.399963+(_coreGal?0.35:0);
-      const _yAmp=_coreGal?10:26;
-      const p=new THREE.Vector3(c0.x+Math.cos(ang)*orb,c0.y+Math.sin(ang*1.7)*_yAmp,c0.z+Math.sin(ang)*orb);
+      const _yAmp=_coreGal?10:26,_ecc=0.04+0.055*(k%3);
+      const p=new THREE.Vector3(c0.x+Math.cos(ang)*orb*(1+_ecc),c0.y+Math.sin(ang*1.7)*_yAmp,c0.z+Math.sin(ang)*orb*(1-_ecc));
       SP[n.id]=p;
       const soft=(n.host_kind==='shared'||n.host_kind==='main');
-      const rp=((soft?4.0:4.6)+(soft?3.4:3.8)*(n.deg||5)/maxDeg)*(np>14?0.85:1);
+      const rp=((soft?4.0:4.6)+(soft?3.4:3.8)*(n.deg||5)/maxDeg)*(np>14?0.85:1)*(0.86+0.36*t);
       const mesh=new THREE.Mesh(new THREE.SphereGeometry(rp,14,10),
         new THREE.MeshBasicMaterial({color:COL[n.type]||col,transparent:true,opacity:soft?0.58:0.97}));
       mesh.position.copy(p);mesh.userData={node:n,kind:'planet'};GSYS.add(mesh);GSPICK.push(mesh);
-      PLRUN.push({m:mesh,n:n,c0:c0.clone(),orb:orb,ang0:ang,ya:_yAmp,ph:0,spd:1/Math.sqrt(Math.max(40,orb)/60)});
+      PLRUN.push({m:mesh,n:n,c0:c0.clone(),c0m:(s._sr||null),orb:orb,ang0:ang,ya:_yAmp,ecc:_ecc,ph:0,srot:_srot,inc:((k%5)-2)*0.045,spd:1/Math.sqrt(Math.max(40,orb)/60)});
       const pl=new THREE.Sprite(new THREE.SpriteMaterial({map:BLOB,color:COL[n.type]||col,
         transparent:true,opacity:soft?0.16:0.34,depthWrite:false,blending:THREE.AdditiveBlending}));
       const _hs=(_coreGal?3.0:4.2);
       pl.position.copy(p);pl.scale.set(rp*_hs,rp*_hs,1);GSYS.add(pl);
-      if(!soft&&(k===0||k===pls.length-1)){
-        const rp2=[],segs=48;
+      if(PLRUN.length)PLRUN[PLRUN.length-1].gl=pl;
+      if(!soft&&(k===pls.length-1||(np<=10&&k===0))){
+        const segs=(orb<80?36:(orb<220?56:76)),rp2=[];
         for(let j=0;j<=segs;j++){const a=j*Math.PI*2/segs;
-          rp2.push(new THREE.Vector3(c0.x+Math.cos(a)*orb,c0.y,c0.z+Math.sin(a)*orb));}
-        GSYS.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(rp2),
-          new THREE.LineBasicMaterial({color:gcol,transparent:true,opacity:0.13})));
+          rp2.push(new THREE.Vector3(Math.cos(a)*orb*(1+_ecc),0,Math.sin(a)*orb*(1-_ecc)));}
+        const _ol=new THREE.Line(new THREE.BufferGeometry().setFromPoints(rp2),
+          new THREE.LineBasicMaterial({color:gcol,transparent:true,opacity:np>10?0.09:0.13}));
+        _ol.position.copy(c0);_ol.rotation.x=((k%5)-2)*0.045+_srot;GSYS.add(_ol);RINGRUN.push({ln:_ol,m:(c0m||mesh)});
       }
       const ksats=satByP[n.id]||[];
       ksats.forEach((sn,si)=>{
         const so=rp*3.0+10+si*9,sa=si*2.2+1.35;
-        const _inc=0.30+(si%3)*0.26,_ci=Math.cos(_inc),_si2=Math.sin(_inc);
-        const q=new THREE.Vector3(p.x+Math.cos(sa)*so,p.y+Math.sin(sa)*so*_si2*0.55,p.z+Math.sin(sa)*so*_ci);
+        const _inc=(0.16+(si%5)*0.11)*(si%7===6?-1:1),_ci=Math.cos(_inc),_si2=Math.sin(_inc);
+        const _secc=0.05+0.04*(si%3);
+        const _rot=((typeof k==='number'?k:0)*0.62);
+        const _ca=Math.cos(sa)*so*(1+_secc),_cz=Math.sin(sa)*so*_ci*(1-_secc);
+        const q=new THREE.Vector3(p.x+_ca*Math.cos(_rot)-_cz*Math.sin(_rot),p.y+Math.sin(sa)*so*_si2*0.55,p.z+_ca*Math.sin(_rot)+_cz*Math.cos(_rot));
         SP[sn.id]=q;
-        const rs=2.2+0.6*(sn.deg||3)/5;
+        const rs=(2.2+0.6*(sn.deg||3)/5)*(1-si*0.07);
+        const _fo=1-si*0.035;
         const _hk=sn.host_planet_kind||'na';
         const sm=new THREE.Mesh(new THREE.SphereGeometry(rs,10,8),
           new THREE.MeshBasicMaterial({color:COL[sn.type]||0xcfe4ff,transparent:true,
-            opacity:_hk==='direct'?0.90:(_hk==='shared'?0.70:(_hk==='slot'?0.55:0.62))}));
+            opacity:((_hk==='direct'?0.90:(_hk==='shared'?0.70:(_hk==='slot'?0.55:0.62)))*_fo)}));
         sm.position.copy(q);GSYS.add(sm);
         if(_hk==='shared'){
           const dl=new THREE.Line(new THREE.BufferGeometry().setFromPoints([p,q]),
@@ -1040,18 +1100,20 @@ function enterGalaxy(gid){
           dl.computeLineDistances();GSYS.add(dl);
           SHRUN.push({g:dl.geometry,sat:sm,pi:mesh});
         }
-        const _sat={m:sm,n:sn,hb:null,p:mesh.position,rp:rp,so:so,sa:sa,ci:_ci,si2:_si2,spd:1/Math.sqrt(so*0.35)};
+        const _sat={m:sm,n:sn,hb:null,p:mesh.position,rp:rp,so:so,sa:sa,ci:_ci,si2:_si2,ecc:_secc,rot:_rot,dir:(si%7===6?-1:1),spd:1/Math.sqrt(so*0.35)};
         const hb=new THREE.Mesh(new THREE.SphereGeometry(9,8,6),
           new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false}));
         hb.position.copy(q);hb.userData={node:sn,kind:'satellite',vis:sm};GSYS.add(hb);GSPICK.push(hb);
         _sat.hb=hb;SATRUN.push(_sat);
-        if(si<3){
-          const rq=[],sg2=28,inc=0.30+si*0.26,ci=Math.cos(inc),si2=Math.sin(inc);
+        if(si<5){
+          const rq=[],sg2=28,inc=_inc,ci=Math.cos(_inc),si2=Math.sin(_inc);
           for(let j=0;j<=sg2;j++){const a=j*Math.PI*2/sg2;
-            rq.push(new THREE.Vector3(Math.cos(a)*so,Math.sin(a)*so*si2*0.55,Math.sin(a)*so*ci));}
+            const _rx=Math.cos(a)*so*(1+_secc),_rz=Math.sin(a)*so*ci*(1-_secc);
+            rq.push(new THREE.Vector3(_rx*Math.cos(_rot)-_rz*Math.sin(_rot),Math.sin(a)*so*si2*0.55,_rx*Math.sin(_rot)+_rz*Math.cos(_rot)));}
           const _dsh=(sn.host_planet_kind==='shared'||sn.host_planet_kind==='slot');
-          const _sl=_dsh?new THREE.LineDashedMaterial({color:gcol,transparent:true,opacity:0.15,dashSize:6,gapSize:7})
-                       :new THREE.LineBasicMaterial({color:gcol,transparent:true,opacity:np>10?0.075:0.11});
+          const _so3=(_dsh?0.15:(np>10?(si>=3?0.055:0.075):(si>=3?0.08:0.11)));
+          const _sl=_dsh?new THREE.LineDashedMaterial({color:gcol,transparent:true,opacity:_so3,dashSize:6,gapSize:7})
+                       :new THREE.LineBasicMaterial({color:gcol,transparent:true,opacity:_so3});
           const _ln=new THREE.Line(new THREE.BufferGeometry().setFromPoints(rq),_sl);
           if(_dsh)_ln.computeLineDistances();
           _ln.position.copy(p);GSYS.add(_ln);RINGRUN.push({ln:_ln,m:mesh});
@@ -2229,21 +2291,51 @@ let _last=performance.now();
 (function loop(){
   requestAnimationFrame(loop);
   const _now=performance.now();const _dt=Math.min(_now-_last,120);_last=_now;const _f=_dt/16.667;
-  if(GMODE&&!SYSMODE&&GALX.visible){GALX.rotation.y=_now*0.00002*spinSp*spinDir;}
+  if(GMODE&&!SYSMODE&&GALX.visible){
+    GALX.rotation.y=_now*0.00002*spinSp*spinDir;
+    for(let i=0;i<GALDRUN.length;i++){const r2=GALDRUN[i];
+      r2.g.rotation.y=_now*0.00002*(1+(1-r2.k/Math.max(1,GALDRUN.length-1))*0.6)*spinSp*spinDir;}
+  }
+  if(SYSMODE&&DUSTRUN.length){
+    DUSTRUN.forEach(d=>{d.o.rotation.y=_now*d.spd*spinSp*spinDir;});
+  }
+  if(SYSMODE&&STARRUN.length){
+    const _ks=(_now*0.00006*spinSp*spinDir);
+    STARRUN.forEach(r=>{
+      const a=r.ang0+_ks*r.spd;
+      const nx=Math.cos(a)*r.rr,nz=Math.sin(a)*r.rr;
+      r.m.position.set(nx,r.y,nz);
+      if(r.gl)r.gl.position.set(nx,r.y,nz);
+      if(r.lb&&r.lb.userData.off)r.lb.position.set(nx+r.lb.userData.off.x,r.y+r.lb.userData.off.y,nz+r.lb.userData.off.z);
+      const sp=(window.__SP||{})[r.sid];if(sp)sp.set(nx,r.y,nz);
+    });
+  }
   if(SYSMODE&&PLRUN.length){
     const _kp=(_now*0.00007*spinSp*spinDir);
     PLRUN.forEach(r=>{
       const a=r.ang0+_kp*r.spd;
-      r.m.position.set(r.c0.x+Math.cos(a)*r.orb,r.c0.y+Math.sin(a*1.7)*r.ya,r.c0.z+Math.sin(a)*r.orb);
+      const cx=r.c0m?r.c0m.m.position.x:r.c0.x,cy=r.c0m?r.c0m.m.position.y:r.c0.y,cz=r.c0m?r.c0m.m.position.z:r.c0.z;
+      const _ti=(r.inc||0)+(r.srot||0);
+      const _ci=Math.cos(_ti),_si=Math.sin(_ti);
+      const _px=Math.cos(a)*r.orb*(1+r.ecc),_pz=Math.sin(a)*r.orb*(1-r.ecc);
+      r.m.position.set(cx+_px,cy+_pz*_si+Math.sin(a*1.7)*r.ya,cz+_pz*_ci);
       const sp=(window.__SP||{})[r.n.id];if(sp)sp.copy(r.m.position);
     });
   }
   if(SYSMODE&&RINGRUN.length){RINGRUN.forEach(r=>r.ln.position.copy(r.m.position));}
+  if(SYSMODE){
+    const _bt=_now*0.0016;
+    for(let i=0;i<STARGLOW.length;i++){const g=STARGLOW[i];
+      if(g.material)g.material.opacity=0.50+0.11*Math.sin(_bt*0.62+i*0.83);}
+    for(let i=0;i<PLRUN.length;i++){const r=PLRUN[i];if(!r.gl)continue;
+      r.gl.material.opacity=(0.34+0.13*Math.sin(_bt*0.74+i*1.27));}
+  }
   if(SYSMODE&&SATRUN.length){
     const _k=(_now*0.00028*spinSp*spinDir);
     SATRUN.forEach(r=>{
-      const a=r.sa+_k*r.spd;
-      r.m.position.set(r.p.x+Math.cos(a)*r.so,r.p.y+Math.sin(a)*r.so*r.si2*0.55,r.p.z+Math.sin(a)*r.so*r.ci);
+      const a=r.sa+_k*r.spd*(r.dir||1);
+      const _ca=Math.cos(a)*r.so*(1+r.ecc),_cz=Math.sin(a)*r.so*r.ci*(1-r.ecc);
+      r.m.position.set(r.p.x+_ca*Math.cos(r.rot)-_cz*Math.sin(r.rot),r.p.y+Math.sin(a)*r.so*r.si2*0.55,r.p.z+_ca*Math.sin(r.rot)+_cz*Math.cos(r.rot));
       r.m.rotation.y+=0.02*_f;
       const sp=(window.__SP||{})[r.n.id];if(sp)sp.copy(r.m.position);
       if(r.hb)r.hb.position.copy(r.m.position);
